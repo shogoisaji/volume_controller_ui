@@ -1,6 +1,7 @@
 # volume_control_ui
 
-A new Flutter project.
+![volume_controller](https://github.com/shogoisaji/volume_controller_ui/assets/131496728/aa7451eb-6a84-4ff5-9d05-8e96578dd803)
+
 
 ## Getting Started
 
