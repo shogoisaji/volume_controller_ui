@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 
-class HomePage extends HookWidget {
-  const HomePage({super.key});
+class ControllerPage extends HookWidget {
+  const ControllerPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final level = useState(0.0);
-    final tapStartAngle = useState(0.0);
-    final controllerSize = 300.0;
+    final tapAngle = useState<double?>(null);
+    final angleDiff = useState(0.0);
+    const controllerSize = 300.0;
+    final controllerCenter = useState(const Offset(0, 0));
+    final key = GlobalKey();
+
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final RenderBox renderBox = key.currentContext!.findRenderObject() as RenderBox;
+        final Size size = renderBox.size;
+        controllerCenter.value = Offset(size.width, size.height);
+      });
+      return null;
+    }, []);
 
     return Scaffold(
       backgroundColor: Colors.blueGrey[700],
@@ -20,10 +33,10 @@ class HomePage extends HookWidget {
       body: Center(
         child: Column(
           children: [
-            SizedBox(
+            const SizedBox(
               height: 50,
             ),
-            Container(
+            SizedBox(
               width: controllerSize,
               height: controllerSize,
               child: Stack(
@@ -47,36 +60,48 @@ class HomePage extends HookWidget {
                   Align(
                     alignment: Alignment.center,
                     child: GestureDetector(
-                      onPanStart: (details) {
-                        final centerPoint = Offset(controllerSize / 2, controllerSize / 2);
-                        // タッチ位置と中心点との差を計算
-                        final dx = details.localPosition.dx - centerPoint.dx;
-                        final dy = details.localPosition.dy - centerPoint.dy;
-                        // atan2を使用して角度をラジアンで計算
-                        tapStartAngle.value = math.atan2(dy, dx);
-                        print("Angle in start: ${tapStartAngle.value}");
-                      },
+                      onPanStart: (details) => tapAngle.value = null,
                       onPanUpdate: (details) {
-                        final centerPoint = Offset(controllerSize / 2, controllerSize / 2);
+                        final centerPoint = Offset((controllerCenter.value.dx) / 2, controllerCenter.value.dx / 2);
                         // タッチ位置と中心点との差を計算
                         final dx = details.localPosition.dx - centerPoint.dx;
                         final dy = details.localPosition.dy - centerPoint.dy;
-                        // atan2を使用して角度をラジアンで計算
-                        final angleRadians = math.atan2(dy, dx);
-                        // ラジアンを度数法に変換
-                        final angleDiff = tapStartAngle.value - angleRadians;
-                        // 角度を出力（必要に応じて他の処理に使用）
-                        print("Angle in diff: $angleDiff   ${tapStartAngle.value}  $angleRadians");
-                        level.value = (level.value + angleDiff / (math.pi * 2)).clamp(0.0, 1.0);
+                        // 円外に出たら処理を修了
+                        final distance = (details.localPosition - centerPoint).distance;
+                        if (distance > controllerSize / 2) {
+                          return;
+                        }
+                        // atan2を使用して角度をラジアンで計算 0 ~ 2π
+                        if (tapAngle.value == null) {
+                          tapAngle.value =
+                              math.atan2(dy, dx) < 0 ? math.pi * 2 + math.atan2(dy, dx) : math.atan2(dy, dx);
+                          return;
+                        }
+                        // 前回の角度
+                        final prevAngle = tapAngle.value;
+                        // 現在の角度
+                        tapAngle.value = math.atan2(dy, dx) < 0 ? math.pi * 2 + math.atan2(dy, dx) : math.atan2(dy, dx);
+                        // 角度の差分
+                        angleDiff.value = -(prevAngle! - tapAngle.value!);
+                        // 角度差分からレベルを計算
+                        final addLevel = (angleDiff.value / math.pi);
+                        // 次のレベルを計算
+                        final nextLevel = (level.value + addLevel);
+                        // レベルが0 ~ 1の間に収まるように制限
+                        if (nextLevel > 1 || nextLevel < 0) return;
+                        // レベルを更新
+                        HapticFeedback.lightImpact();
+                        level.value = nextLevel.clamp(0.0, 1.0);
                       },
                       child: Container(
+                          key: key,
                           width: controllerSize * 0.6,
                           height: controllerSize * 0.6,
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.blueGrey[300]!, width: 1),
                             // color: Colors.blueGrey[300],
                             gradient: RadialGradient(
-                              center: Alignment(0, -0.2),
+                              center: const Alignment(0, -0.2),
                               colors: [Colors.blueGrey[400]!, Colors.blueGrey[600]!],
                             ),
                             shape: BoxShape.circle,
@@ -113,6 +138,23 @@ class HomePage extends HookWidget {
                                       spreadRadius: 1,
                                     ),
                                   ],
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: controllerSize * 0.04,
+                                    height: controllerSize * 0.04,
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 0.6,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
