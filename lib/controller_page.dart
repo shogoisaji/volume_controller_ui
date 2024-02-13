@@ -9,6 +9,11 @@ class ControllerPage extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final animationController = useAnimationController(
+      lowerBound: -0.1,
+      upperBound: 1.1,
+      duration: const Duration(milliseconds: 1000),
+    );
     final level = useState(0.0);
     final tapAngle = useState<double?>(null);
     final angleDiff = useState(0.0);
@@ -57,109 +62,130 @@ class ControllerPage extends HookWidget {
                       ),
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.center,
-                    child: GestureDetector(
-                      onPanStart: (details) => tapAngle.value = null,
-                      onPanUpdate: (details) {
-                        final centerPoint = Offset((controllerCenter.value.dx) / 2, controllerCenter.value.dx / 2);
-                        // タッチ位置と中心点との差を計算
-                        final dx = details.localPosition.dx - centerPoint.dx;
-                        final dy = details.localPosition.dy - centerPoint.dy;
-                        // 円外に出たら処理を修了
-                        final distance = (details.localPosition - centerPoint).distance;
-                        if (distance > controllerSize / 2) {
-                          return;
-                        }
-                        // atan2を使用して角度をラジアンで計算 0 ~ 2π
-                        if (tapAngle.value == null) {
-                          tapAngle.value =
-                              math.atan2(dy, dx) < 0 ? math.pi * 2 + math.atan2(dy, dx) : math.atan2(dy, dx);
-                          return;
-                        }
-                        // 前回の角度
-                        final prevAngle = tapAngle.value;
-                        // 現在の角度
-                        tapAngle.value = math.atan2(dy, dx) < 0 ? math.pi * 2 + math.atan2(dy, dx) : math.atan2(dy, dx);
-                        // 角度の差分
-                        angleDiff.value = -(prevAngle! - tapAngle.value!);
-                        // 角度差分からレベルを計算
-                        final addLevel = (angleDiff.value / math.pi);
-                        // 次のレベルを計算
-                        final nextLevel = (level.value + addLevel);
-                        // レベルが0 ~ 1の間に収まるように制限
-                        if (nextLevel > 1 || nextLevel < 0) return;
-                        // レベルを更新
-                        HapticFeedback.lightImpact();
-                        level.value = nextLevel.clamp(0.0, 1.0);
-                      },
-                      child: Container(
-                          key: key,
-                          width: controllerSize * 0.6,
-                          height: controllerSize * 0.6,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.blueGrey[300]!, width: 1),
-                            // color: Colors.blueGrey[300],
-                            gradient: RadialGradient(
-                              center: const Alignment(0, -0.2),
-                              colors: [Colors.blueGrey[400]!, Colors.blueGrey[600]!],
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                offset: const Offset(0, 2),
-                                blurRadius: 6,
-                                spreadRadius: 4,
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                offset: const Offset(0, 15),
-                                blurRadius: 30,
-                                spreadRadius: 20,
-                              ),
-                            ],
-                          ),
-                          child: Transform.rotate(
-                            angle: math.pi * level.value,
-                            child: Align(
-                              alignment: const Alignment(-0.9, 0),
-                              child: Container(
-                                width: controllerSize * 0.08,
-                                height: controllerSize * 0.08,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey[200]!, width: 1),
-                                  color: Colors.grey[300],
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.5),
-                                      blurRadius: 5,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
+                  AnimatedBuilder(
+                    animation: animationController,
+                    builder: (context, child) {
+                      return Align(
+                        alignment: Alignment.center,
+                        child: GestureDetector(
+                          onPanStart: (details) => tapAngle.value = null,
+                          onPanEnd: (details) {
+                            if (level.value > 1) {
+                              level.value = animationController.value;
+                              print('max');
+                              animationController.animateTo(1,
+                                  duration: const Duration(milliseconds: 500), curve: Curves.bounceOut);
+                            }
+                            if (level.value < 0) {
+                              level.value = animationController.value;
+                              print('max');
+                              animationController.animateTo(0,
+                                  duration: const Duration(milliseconds: 400), curve: Curves.bounceOut);
+                            }
+                          },
+                          onPanUpdate: (details) {
+                            final centerPoint = Offset((controllerCenter.value.dx) / 2, controllerCenter.value.dx / 2);
+                            // タッチ位置と中心点との差を計算
+                            final dx = details.localPosition.dx - centerPoint.dx;
+                            final dy = details.localPosition.dy - centerPoint.dy;
+                            // 円外に出たら処理を修了
+                            final distance = (details.localPosition - centerPoint).distance;
+                            if (distance > controllerSize / 2) {
+                              return;
+                            }
+                            // atan2を使用して角度をラジアンで計算 0 ~ 2π
+                            if (tapAngle.value == null) {
+                              tapAngle.value =
+                                  math.atan2(dy, dx) < 0 ? math.pi * 2 + math.atan2(dy, dx) : math.atan2(dy, dx);
+                              return;
+                            }
+                            // 前回の角度
+                            final prevAngle = tapAngle.value;
+                            // 現在の角度
+                            tapAngle.value =
+                                math.atan2(dy, dx) < 0 ? math.pi * 2 + math.atan2(dy, dx) : math.atan2(dy, dx);
+                            // 角度の差分
+                            angleDiff.value = -(prevAngle! - tapAngle.value!);
+                            // 角度差分からレベルを計算
+                            final addLevel = (angleDiff.value / math.pi);
+                            // 次のレベルを計算
+                            final nextLevel = (level.value + addLevel);
+                            animationController.value = nextLevel.clamp(-0.1, 1.1);
+                            // レベルが0 ~ 1の間に収まるように制限
+                            if (nextLevel > 1.1 || nextLevel < -0.1) return;
+                            // レベルを更新
+                            HapticFeedback.lightImpact();
+                            level.value = nextLevel.clamp(-0.1, 1.1);
+                          },
+                          child: Container(
+                              key: key,
+                              width: controllerSize * 0.6,
+                              height: controllerSize * 0.6,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.blueGrey[300]!, width: 1),
+                                // color: Colors.blueGrey[300],
+                                gradient: RadialGradient(
+                                  center: const Alignment(0, -0.2),
+                                  colors: [Colors.blueGrey[400]!, Colors.blueGrey[600]!],
                                 ),
-                                child: Center(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    offset: const Offset(0, 2),
+                                    blurRadius: 6,
+                                    spreadRadius: 4,
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    offset: const Offset(0, 15),
+                                    blurRadius: 30,
+                                    spreadRadius: 20,
+                                  ),
+                                ],
+                              ),
+                              child: Transform.rotate(
+                                angle: math.pi * animationController.value,
+                                child: Align(
+                                  alignment: const Alignment(-0.9, 0),
                                   child: Container(
-                                    width: controllerSize * 0.04,
-                                    height: controllerSize * 0.04,
+                                    width: controllerSize * 0.08,
+                                    height: controllerSize * 0.08,
                                     decoration: BoxDecoration(
-                                      color: Colors.orange,
+                                      border: Border.all(color: Colors.grey[200]!, width: 1),
+                                      color: Colors.grey[300],
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.2),
-                                          blurRadius: 0.6,
-                                          spreadRadius: 2,
+                                          color: Colors.black.withOpacity(0.5),
+                                          blurRadius: 5,
+                                          spreadRadius: 1,
                                         ),
                                       ],
                                     ),
+                                    child: Center(
+                                      child: Container(
+                                        width: controllerSize * 0.04,
+                                        height: controllerSize * 0.04,
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.2),
+                                              blurRadius: 0.6,
+                                              spreadRadius: 2,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          )),
-                    ),
+                              )),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -167,7 +193,7 @@ class ControllerPage extends HookWidget {
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Text(
-                'Level : ${(level.value * 100).toStringAsFixed(0)}%',
+                'Level : ${(level.value * 100).clamp(0, 100).toStringAsFixed(0)}%',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey[200]),
               ),
             ),
@@ -175,8 +201,9 @@ class ControllerPage extends HookWidget {
               width: controllerSize,
               child: Slider(
                 activeColor: Colors.orange[500],
-                value: level.value,
+                value: level.value.clamp(0.0, 1.0),
                 onChanged: (value) {
+                  animationController.value = value;
                   level.value = value;
                 },
               ),
